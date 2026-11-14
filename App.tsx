@@ -1882,7 +1882,9 @@ export default function App(): React.JSX.Element {
                       {borderColor: 当前线 === l.id ? t.accent : t.line},
                       pressed && {opacity: 0.6},
                     ]}>
-                    <Text style={[styles.lineName, {color: t.text}]}>{l.name}</Text>
+                    <Text style={[styles.lineName, {color: t.text}]}>
+                      {当前线 === l.id ? 名 : l.name}
+                    </Text>
                     <Text style={[styles.lineAddr, {color: t.dim}]} numberOfLines={1}>
                       {l.server.replace(/^https?:\/\//, '')}
                     </Text>
@@ -2128,6 +2130,9 @@ export default function App(): React.JSX.Element {
                       set名(新名);
                       set名字开(false);
                       AsyncStorage.setItem(KEY_NAME, 新名).catch(() => {});
+                      // 消息列表和账号管理里显示的是「这条线的名字」，
+                      // 光改 名 那两处不会跟着变——顺手把当前这条线也改名
+                      void 存线(线表.map(x => (x.id === 当前线 ? {...x, name: 新名} : x)));
                     }}
                     style={({pressed}) => [
                       styles.primaryBtn,
@@ -2402,7 +2407,9 @@ export default function App(): React.JSX.Element {
                   <Image source={{uri: 我的头像}} style={styles.convAvatar} />
                   <View style={styles.convBody}>
                     <View style={styles.convTop}>
-                      <Text style={[styles.convName, {color: t.text}]}>{l.name}</Text>
+                      <Text style={[styles.convName, {color: t.text}]}>
+                        {在用 ? 名 : l.name}
+                      </Text>
                       <Text style={[styles.convTime, {color: t.dim}]}>
                         {在用 && 末条 ? hhmm(末条.ts) : ''}
                       </Text>
