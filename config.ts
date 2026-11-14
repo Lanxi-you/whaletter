@@ -59,3 +59,11 @@ export const KEY_NAME = 'whaletter.name';
 
 /** 默认字体：鲸落体，打在 assets/fonts/jingluo.ttf */
 export const 字体 = 'jingluo';
+
+/**
+ * 这一份 APK 自带的是哪一版 JS。
+ * 装机后热更新还没发生过时，原生那边报的版本是空串——拿它去比服务端，
+ * 会以为"有新版本"，把同一份包再下一遍。
+ * 每次打 APK 记得把这里改成你推上去的那一版号。
+ */
+export const 自带版本 = '1.0.0';

@@ -44,7 +44,7 @@ import {dayTime, hhmm, normalizeServer} from './utils';
 import {makeApi} from './api';
 import {安全读} from './storage';
 import type {ApiState, Msg, Row, ThemeMode, 线} from './types';
-import {DEFAULT_SERVER, DEFAULT_TOKEN, GAP_MS, PAGE, POLL_MS, 说明文字, 默认名字, 字体, KEY_NAME, KEY_ALIVE, KEY_AVATAR, KEY_BG, KEY_BG_MSG, KEY_CACHE, KEY_CLEARED, KEY_LINE, KEY_LINES, KEY_PAGE, KEY_SERVER, KEY_THEME, KEY_TOKEN} from './config';
+import {DEFAULT_SERVER, DEFAULT_TOKEN, GAP_MS, PAGE, POLL_MS, 说明文字, 自带版本, 默认名字, 字体, KEY_NAME, KEY_ALIVE, KEY_AVATAR, KEY_BG, KEY_BG_MSG, KEY_CACHE, KEY_CLEARED, KEY_LINE, KEY_LINES, KEY_PAGE, KEY_SERVER, KEY_THEME, KEY_TOKEN} from './config';
 import {palette} from './theme';
 import type {Pal} from './theme';
 import {launchImageLibrary} from 'react-native-image-picker';
@@ -198,7 +198,7 @@ export default function App(): React.JSX.Element {
   // 启动时问一下服务端有没有新版；有就自动装上，下次冷启动生效
   useEffect(() => {
     (async () => {
-      const cur = await currentVersion();
+      const cur = (await currentVersion()) || 自带版本;
       setUpdCur(cur);
       if (!server || !token) return;
       const info = await checkUpdate(server, cur);
@@ -225,7 +225,7 @@ export default function App(): React.JSX.Element {
     setUpdBusy(true);
     setUpdMsg('查着呢…');
     try {
-      const cur = await currentVersion();
+      const cur = (await currentVersion()) || 自带版本;
       const info = await checkUpdate(server, cur);
       if (!info) {
         setUpdMsg('已经是最新的');
@@ -772,9 +772,13 @@ export default function App(): React.JSX.Element {
   useEffect(() => {
     if (booting || setupOpen || !server || !token) return;
     pullInitial().catch((e: any) => {
-      if (e.code === 401) setSetupErr('令牌不对，重新填一下');
-      else setBanner(`连不上：${e.message}`);
-      setSetupOpen(true);
+      // 只有令牌不对才该去设置页；网络不通是网络的事，跳过去也改不了什么
+      if (e.code === 401) {
+        setSetupErr('令牌不对，重新填一下');
+        setSetupOpen(true);
+      } else {
+        setBanner(`连不上：${e.message}`);
+      }
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [booting, setupOpen, server, token]);
