@@ -2192,7 +2192,7 @@ export default function App(): React.JSX.Element {
           </View>
 
           <View style={styles.setFoot}>
-            <Text style={[styles.footText, {color: t.dim}]}>鲸笺 · Whaletter · 开源版</Text>
+            <Text style={[styles.footText, {color: t.dim}]}>鲸笺 · Whaletter</Text>
           </View>
         </ScrollView>
 
