@@ -1977,8 +1977,8 @@ export default function App(): React.JSX.Element {
       <SafeAreaView style={[styles.fill, {backgroundColor: t.bg}]}>
         {/* 顶上这条是白纱：半透明白，底下的图还能透出来一点，字也压得住 */}
         <StatusBar
-          barStyle={页 === 'msg' || !t.dark ? 'dark-content' : 'light-content'}
-          backgroundColor={页 === 'msg' ? 'rgba(255,255,255,0.86)' : t.bg}
+          barStyle={t.dark ? 'light-content' : 'dark-content'}
+          backgroundColor={页 === 'msg' ? (t.dark ? 'rgba(18,18,31,0.86)' : 'rgba(255,255,255,0.86)') : t.bg}
         />
 
         {/* 消息页铺它自己那张，顶到边；空间有自己的海面，别串过去 */}
@@ -1987,15 +1987,15 @@ export default function App(): React.JSX.Element {
         {页 === 'msg' ? (
           <View style={[styles.fill, {zIndex: 1}]}>
             {/* 顶上这一排是白纱：半透明，图透得出来，字也还看得清 */}
-            <View style={[styles.homeHead, {backgroundColor: 'rgba(255,255,255,0.86)'}]}>
+            <View style={[styles.homeHead, {backgroundColor: t.dark ? 'rgba(18,18,31,0.86)' : 'rgba(255,255,255,0.86)'}]}>
               <Pressable
                 onPress={() => setDrawerOpen(true)}
                 hitSlop={14}
                 style={styles.hamburger}>
-                <View style={[styles.hamLine, styles.hamTop, {backgroundColor: '#242448'}]} />
-                <View style={[styles.hamLine, styles.hamBottom, {backgroundColor: '#242448'}]} />
+                <View style={[styles.hamLine, styles.hamTop, {backgroundColor: t.text}]} />
+                <View style={[styles.hamLine, styles.hamBottom, {backgroundColor: t.text}]} />
               </Pressable>
-              <Text style={[styles.homeTitle, {color: '#242448'}]}>消息</Text>
+              <Text style={[styles.homeTitle, {color: t.text}]}>消息</Text>
             </View>
 
             {/* 连不上要当场说出来，别让人对着一个看着正常的列表干等 */}
