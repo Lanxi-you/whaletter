@@ -20,7 +20,18 @@
 
 ---
 
-## 1. 把 server/ 挂成 DSH 插件
+## 1. 把 server/ 装成 DSH 插件
+
+**首选：走 DSH 自己的插件命令**（正规做法，装完在设置页里能看见、能开关）：
+
+```bash
+dsh plugin --profile desktop add "<仓库绝对路径>/server"
+```
+
+Windows 上 DSH 的命令行在 `C:\Users\<用户>\AppData\Local\Programs\DeepSeek Harness\resources\runtime\cli\bin\dsh.cmd`，
+调用前先设 `ELECTRON_RUN_AS_NODE=1`。
+
+**如果那条命令跑不通，就手动挂**（等价，只是不会出现在设置页的管理列表里）：
 
 目标：`~/.dsh/profiles/desktop/node_modules/dsh-whaletter-chat` 指向本仓库的 `server/` 目录。
 
@@ -40,21 +51,23 @@ ln -s "<仓库绝对路径>/server" ~/.dsh/profiles/desktop/node_modules/dsh-wha
 
 ---
 
-## 2. 在 DSH 的配置里挂上这一行
+## 2. 让 DSH 认得它
 
-编辑 `~/.dsh/profiles/desktop/cordis.patch.yml`，在**文件末尾**追加：
+- 用第 1 步的 `dsh plugin add` 装的话，**这一步不用做**，命令会自己把声明写上
+- 手动挂的话，编辑 `~/.dsh/profiles/desktop/cordis.patch.yml`，在**文件末尾**追加：
 
-```yaml
-- insert:
-    - id: dsh-whaletter-chat
-      name: dsh-whaletter-chat
-```
+  ```yaml
+  - insert:
+      - id: dsh-whaletter-chat
+        name: dsh-whaletter-chat
+  ```
 
-注意：
-- 缩进是两个空格，`- insert:` 前面不要有缩进（顶层列表）
-- 文件里如果已经有别的 `- insert:`，**新加一段**，不要合并进去
+  注意：
+  - 缩进是两个空格，`- insert:` 前面不要有缩进（顶层列表）
+  - 文件里如果已经有别的 `- insert:`，**新加一段**，不要合并进去
+  - 本包自带 `cordis.patch.yml`，所以用 `dsh plugin add` 的路线不需要手写这段
 
-验证：`~/.dsh/profiles/desktop/cordis.patch.yml` 里能搜到 `dsh-whaletter-chat` 两处（id 和 name）。
+验证：`~/.dsh/profiles/desktop/cordis.patch.yml` 里能搜到 `dsh-whaletter-chat`。
 
 ---
 

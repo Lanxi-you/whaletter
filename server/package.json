@@ -2,18 +2,34 @@
   "name": "dsh-whaletter-chat",
   "version": "0.1.0",
   "type": "module",
-  "private": true,
-  "description": "自己搭的手机聊天通道：PWA 页面 + 令牌鉴权，消息直接进出 DSH 的会话，不经过任何第三方平台",
+  "description": "鲸笺的后端：一个 DSH 插件。手机发来的话直接投进 DSH 会话，会话里的话记下来等手机来取，不经过任何第三方平台",
   "main": "src/index.js",
   "exports": {
     ".": "./src/index.js",
     "./package.json": "./package.json"
   },
+  "files": [
+    "src/",
+    "public/",
+    "tools/",
+    "cordis.patch.yml"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "keywords": [
+    "dsh-plugin",
+    "deepseek-harness",
+    "chat",
+    "self-hosted"
+  ],
   "engines": {
     "node": ">=20"
   },
   "scripts": {
     "icons": "node tools/gen-icons.mjs"
   },
-  "license": "Apache-2.0"
+  "license": "MIT"
 }

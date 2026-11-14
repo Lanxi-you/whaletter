@@ -1,0 +1,14 @@
+# dsh-whaletter-chat 组合包声明
+#
+# 有了这个文件和 package.json 里的 `dsh.bundle` 一行，DSH 才会把本包当成「组合包」：
+# 设置页里能看见它、能开关；装的时候也可以直接 `dsh plugin --profile <名字> add <本包路径>`。
+#
+# name 必须和 package.json 的 name 完全一致——cordis 是按包名去 import 的。
+# 写错会报 `Cannot find package '...'`。
+#
+# 这里只写 id 和 name，不写任何配置：本插件的配置（访问令牌、目标会话、端口）
+# 存在它自己生成的 `data-root/config.json` 里。要是在这里硬写配置，
+# 会把文件里的值盖掉，用户改了也不生效。
+- insert:
+    - id: dsh-whaletter-chat
+      name: dsh-whaletter-chat
