@@ -10,6 +10,9 @@
 
 按顺序确认这四件事，结果记下来再往下走：
 
+0. **APK 从哪来**：优先去本仓库的 Releases 下最新的 `whaletter-*.apk`；
+   实在没有才自己编（`npm install`，然后 `cd android && ./gradlew assembleDebug`）。
+
 1. **系统**：Windows / macOS / Linux。Windows 上命令用 PowerShell 写法（见每步的 Windows 分支）。
 2. **有没有装 DeepSeek Harness（DSH）**：
    - Windows：`C:\Users\<用户>\AppData\Local\Programs\DeepSeek Harness\`
@@ -154,15 +157,45 @@ cat <仓库路径>/server/data-root/config.json
 
 ## 6. 手机端：装 App 并填地址令牌
 
-1. 装 APK：
-   - 有现成的包就直接装
-   - 没有就自己编：`npm install`，然后 `cd android && ./gradlew assembleDebug`，
-     产物在 `android/app/build/outputs/apk/debug/app-debug.apk`
-2. 打开 App，第一次会直接落在「设置 → 账号管理 → 改这条」：
+### 6.1 先把 APK 弄到手机上（用户在电脑前，手机在手上）
+
+AI 通常是在电脑上干活的，包也在电脑上，**得想办法把它送到手机**。按顺序试：
+
+**办法 A：电脑上临时起个下载页（最省事，同一个 WiFi 就能用）**
+
+```bash
+# 在放 APK 的目录里
+python -m http.server 8000
+```
+
+然后查电脑的内网地址（Windows `ipconfig`，macOS `ipconfig getifaddr en0`，Linux `ip addr`），
+让用户在**手机浏览器**打开：
+
+```
+http://<内网地址>:8000/whaletter-1.0.0.apk
+```
+
+下完让他点安装。装完记得把那个临时服务关掉（Ctrl+C）。
+
+注意：Windows 第一次跑可能弹防火墙授权，点允许；如果手机打不开，先确认在同一个 WiFi。
+
+**办法 B：手机连数据线，用 adb 直接装**
+
+```bash
+adb devices            # 先确认手机连上了（手机要开 USB 调试）
+adb install -r whaletter-1.0.0.apk
+```
+
+**办法 C：走现成的文件通道**——网盘、邮箱附件、或者任何能传文件的聊天软件，
+用户自己传过去。别用需要注册的服务。
+
+### 6.2 装完填地址和令牌
+
+1. 打开 App，第一次会直接落在「设置 → 账号管理 → 改这条」：
    - 地址：第 5 步确定的那个（例如 `100.97.16.102:8791`）
    - 令牌：`config.json` 里的 `访问令牌`
    - 点「存下」
-3. 回消息页，点那条线进去，发一句话
+2. 回消息页，点那条线进去，发一句话
 
 验证：这句话应该出现在电脑那边的 DSH 会话里，并且有回复回来。
 
