@@ -204,7 +204,7 @@ python -m http.server 8000
 查电脑内网地址，让用户在**手机浏览器**打开：
 
 ```
-http://<内网地址>:8000/whaletter-1.0.0.apk
+http://<内网地址>:8000/whaletter-1.0.1.apk
 ```
 
 下完点安装。**装完记得 Ctrl+C 关掉这个临时服务。**
@@ -215,7 +215,7 @@ http://<内网地址>:8000/whaletter-1.0.0.apk
 
 ```bash
 adb devices                  # 确认连上了（手机要开 USB 调试）
-adb install -r whaletter-1.0.0.apk
+adb install -r whaletter-1.0.1.apk
 ```
 
 ### 办法 C：走网盘 / 邮箱附件 / 任何能传文件的软件，让他自己传
