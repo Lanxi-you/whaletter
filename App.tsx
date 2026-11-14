@@ -506,6 +506,17 @@ export default function App(): React.JSX.Element {
   const [消息背景, set消息背景] = useState<string | null>(null);
   /** 点开的大图；null 就是没在看 */
   const [看图, set看图] = useState<string | null>(null);
+  /** 屏幕中间飘一下的小提示（「已复制」这种），一秒多自己消失 */
+  const [提示, set提示] = useState('');
+  const 提示计时 = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const 飘一句 = useCallback((文: string) => {
+    set提示(文);
+    if (提示计时.current) clearTimeout(提示计时.current);
+    提示计时.current = setTimeout(() => {
+      提示计时.current = null;
+      set提示('');
+    }, 1400);
+  }, []);
 
   const [messages, setMessages] = useState<Msg[]>([]);
   /** 现在铺出来多少条（从最新往回数）。往上翻到顶才加 */
@@ -1748,6 +1759,7 @@ export default function App(): React.JSX.Element {
             <Pressable
               onLongPress={() => {
                 Clipboard.setString(m.text);
+                飘一句(m.text.startsWith('[表情]') ? '表情的地址复制了' : '已复制');
               }}
               delayLongPress={350}>
               <View
@@ -2695,6 +2707,13 @@ export default function App(): React.JSX.Element {
       )}
       {抽屉}
 
+      {/* 复制之后飘一句，别让人猜到底复制上没有 */}
+      {!!提示 && (
+        <View style={styles.toast} pointerEvents="none">
+          <Text style={styles.toastText}>{提示}</Text>
+        </View>
+      )}
+
       {splash}
 
       {/* 点开的大图：铺满一屏，点哪儿都关 */}
@@ -2856,6 +2875,19 @@ const styles = StyleSheet.create(补字体({
   spaceTime: {fontSize: 11, marginBottom: 6},
   spaceText: {fontSize: 15, lineHeight: 24},
   spaceFoot: {fontSize: 11, textAlign: 'center', marginTop: 14},
+
+  // 屏幕中间飘一下的小提示
+  toast: {
+    position: 'absolute',
+    alignSelf: 'center',
+    bottom: 120,
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    borderRadius: 18,
+    backgroundColor: 'rgba(20,20,32,0.86)',
+    zIndex: 55,
+  },
+  toastText: {color: '#F2F1F7', fontSize: 13},
 
   // 启动页
   // ⚠ zIndex 要给足：下面那层内容提到 1 以后，没写 zIndex 的启动页就被压到后面去了，
