@@ -6,7 +6,7 @@
  * 图形：react-native-svg（鲸尾气泡尖、启动页波浪线、渐变底），不用位图代替矢量
  *
  * 配色按 C:\lanxi\ref\DESIGN-鲸屋.md 的采样色板（从立绘上采的藏青，不是海蓝）。
- * 后端是电脑上的 DSH 插件 dsh-whaletter-chat，地址和令牌都存在 AsyncStorage 里。
+ * 后端是电脑上的 DSH 插件（仓库里的 server/），地址和令牌都存在本地。
  */
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {
@@ -33,11 +33,20 @@ import {
   View,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import Svg, {Circle, Defs, Ellipse, G, LinearGradient, Path, Rect, Stop} from 'react-native-svg';
+import Svg, {Defs, G, LinearGradient, Path, Rect, Stop} from 'react-native-svg';
 import {applyUpdate, checkUpdate, currentVersion, revert} from './updater';
-import {avatar, whaleArt, whale0, whale1, whale2, seaBg} from './images';
+import {avatar, whaleArt, whale0, whale1, whale2} from './images';
 import {MarkedMeme} from './MemeMark';
 import {MemeGallery} from './MemeGallery';
+import {SetDivider, SetIcon, SetRow, WaveLine, WhaleTail} from './ui';
+import {SpacePage} from './SpacePage';
+import {dayTime, hhmm, normalizeServer} from './utils';
+import {makeApi} from './api';
+import {安全读} from './storage';
+import type {ApiState, Msg, Row, ThemeMode, 线} from './types';
+import {DEFAULT_SERVER, DEFAULT_TOKEN, GAP_MS, PAGE, POLL_MS, 说明文字, 默认名字, 字体, KEY_NAME, KEY_ALIVE, KEY_AVATAR, KEY_BG, KEY_BG_MSG, KEY_CACHE, KEY_CLEARED, KEY_LINE, KEY_LINES, KEY_PAGE, KEY_SERVER, KEY_THEME, KEY_TOKEN} from './config';
+import {palette} from './theme';
+import type {Pal} from './theme';
 import {launchImageLibrary} from 'react-native-image-picker';
 import {pick, types} from '@react-native-documents/picker';
 import RNFS from 'react-native-fs';
@@ -50,402 +59,10 @@ import notifee, {AndroidImportance} from '@notifee/react-native';
  */
 notifee.registerForegroundService(() => new Promise(() => {}));
 
-type Role = 'user' | 'assistant';
-type Msg = {seq: number; role: Role; text: string; ts: number; failed?: boolean};
-/** 一条线 = 一个联系人的后端：填个名字、地址和令牌就能加 */
-type 线 = {id: string; name: string; server: string; token: string};
-type Row = {kind: 'time'; key: string; ts: number} | {kind: 'msg'; key: string; msg: Msg};
-type ThemeMode = 'system' | 'light' | 'dark';
-type ApiState = {
-  ok: boolean;
-  name: string;
-  target: {id: string; title: string};
-  alive: boolean;
-  lastSeq: number;
-  count: number;
-};
 
-const KEY_SERVER = 'jingwu.server';
-const KEY_TOKEN = 'jingwu.token';
-const KEY_THEME = 'jingwu.theme';
-/** 有几条线（每个联系人都是一条线：名字 + 地址 + 令牌） */
-const KEY_LINES = 'jingwu.lines';
-/** 现在走的是哪一条 */
-const KEY_LINE = 'jingwu.line';
-/** 自己换过的头像（data URI）；没换过就用包里那张 */
-const KEY_AVATAR = 'jingwu.avatar';
-/** 聊天页背景图 */
-const KEY_BG = 'jingwu.bg';
-/** 消息页背景图（跟聊天页分开存，各换各的） */
-const KEY_BG_MSG = 'jingwu.bgMsg';
-/** 上次停在哪个页：杀掉后台再进来，直接回到上次那页，不用手动点账号 */
-const KEY_PAGE = 'jingwu.page';
-/** 后台常驻开着没有（'1' 开 / '0' 关） */
-const KEY_ALIVE = 'jingwu.alive';
-/** 对方的名字（默认「鲸鱼娘」，设置里能改） */
-const KEY_NAME = 'whaletter.name';
-/** 清过聊天记录的话，记一个「清到这个序号」的水位；电脑上那份不动 */
-const KEY_CLEARED = 'jingwu.clearedBefore';
 
-// 开源版不带任何人的地址和令牌：第一次打开在设置页里自己填。
-// 服务端就是仓库里那个 DSH 插件（见 README），填你自己的电脑地址和那边生成的令牌。
-const DEFAULT_SERVER = '';
-const DEFAULT_TOKEN = '';
-const POLL_MS = 1500;
-const GAP_MS = 10 * 60 * 1000; // 隔了十分钟就插一条时间
-const PAGE = 30; // 一屏先铺多少条；往上翻到顶再多放这么多，别一次把几百条全渲染出来
 
-/** 默认字体：鲸落体，打在 assets/fonts/jingluo.ttf。换字体就换文件、对齐这个名字 */
-const 字体 = 'jingluo';
-/** 对方的名字。默认「鲸鱼娘」，设置里能改 */
-const 默认名字 = '鲸鱼娘';
 
-/** 设置 → 说明 那一页的字 */
-const 说明文字 = [
-  '鲸笺是个自己搭的聊天 App：不经过 QQ、微信、任何平台，你的话直接进你自己的电脑。',
-  '',
-  '它分两半——手机上是这个壳，电脑上是一个后端（仓库里的 DSH 插件）。壳只管显示，' +
-    '聊天记录全存在你自己电脑上，谁要看得先打开你那台机器。',
-  '',
-  '第一次用：先在自己电脑上把后端跑起来，它会给一个地址和令牌；回到这个 App，' +
-    '点开侧栏 → 设置 → 账号管理，把地址和令牌填进去，就能说话了。',
-  '',
-  '因为这个东西是出于热爱做出来的，所以全部开源。里面的表情图、字体、' +
-    '一部分插画来自网络或其他作者，如有侵犯到您的权益，请发邮件到 ' +
-    '3461454026@qq.com，我会第一时间删掉。',
-  '',
-  '想改名字、换背景、加更多条线，都在设置里。',
-].join('\n');
-
-/** DESIGN-鲸屋.md 的色板：浅色 / 深色各一套 */
-function palette(dark: boolean) {
-  return dark
-    ? {
-        dark: true,
-        bg: '#12121F',
-        surface: '#262640',
-        mine: '#4A5590',
-        mineText: '#F2F1F7',
-        her: '#262640',
-        herText: '#E8E6F0',
-        accent: '#606CA8',
-        accentBright: '#6478AA',
-        text: '#E8E6F0',
-        dim: '#8A85A0',
-        line: 'rgba(232,230,240,0.08)',
-        header: 'rgba(18,18,31,0.94)',
-        headerText: '#F0F0F0',
-        inputBg: '#262640',
-        danger: '#E08A88',
-        wave: '#6478AA',
-      }
-    : {
-        dark: false,
-        bg: '#F7F6FA',
-        surface: '#FFFFFF',
-        mine: '#3C3C60',
-        mineText: '#FFFFFF',
-        her: '#ECEAF4',
-        herText: '#242448',
-        accent: '#606CA8',
-        accentBright: '#6478AA',
-        text: '#242448',
-        dim: '#8A85A0',
-        line: 'rgba(60,60,96,0.10)',
-        header: 'rgba(36,36,72,0.94)',
-        headerText: '#F0F0F0',
-        inputBg: '#FFFFFF',
-        danger: '#C25B54',
-        wave: '#B4A8C0',
-      };
-}
-type Pal = ReturnType<typeof palette>;
-
-const hhmm = (ts: number) => {
-  const d = new Date(ts);
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${p(d.getHours())}:${p(d.getMinutes())}`;
-};
-
-function dayTime(ts: number) {
-  const d = new Date(ts);
-  const now = new Date();
-  const sameDay = d.toDateString() === now.toDateString();
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${sameDay ? '' : `${d.getMonth() + 1}月${d.getDate()}日 `}${p(d.getHours())}:${p(d.getMinutes())}`;
-}
-
-/** 「10.0.0.2:8791」「http://x/」都认，统一成不带结尾斜杠的基址 */
-function normalizeServer(raw: string) {
-  let s = (raw || '').trim();
-  if (!s) return '';
-  if (!/^https?:\/\//i.test(s)) s = 'http://' + s;
-  return s.replace(/\/+$/, '');
-}
-
-/** 小鲸尾（气泡旁边那个尖、图标同一套形）：两瓣、上翘 */
-function WhaleTail({size = 12, color = '#B4A8C0'}: {size?: number; color?: string}) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24">
-      <Path
-        d="M12 22c-1.4-4.2-1.1-8.2.8-12 .3-.5 1-.5 1.3 0l3.6 6.2c.3.5 1 .4 1.2-.2l2-6.4c.2-.6.9-.8 1.3-.3 1 1.3 1.6 2.9 1.8 4.7-3.2.8-6.6 3.6-8.4 8-.2.5-.9.5-1.1 0z"
-        fill={color}
-      />
-      <Path
-        d="M12 22c-1.8-4.4-5.2-7.2-8.4-8 .2-1.8.8-3.4 1.8-4.7.4-.5 1.1-.3 1.3.3l2 6.4c.2.6.9.7 1.2.2l3.6-6.2c.3-.5 1-.5 1.3 0 1.9 3.8 2.2 7.8.8 12-.2.5-.9.5-1.1 0z"
-        fill={color}
-        opacity={0.55}
-      />
-    </Svg>
-  );
-}
-
-/** 极细的波浪线：启动页那一条 */
-function WaveLine({width = 108, color = '#B4A8C0'}) {
-  return (
-    <Svg width={width} height={8} viewBox={`0 0 ${width} 8`}>
-      <Path
-        d={`M1 5 Q ${width * 0.18} 1, ${width * 0.36} 5 T ${width * 0.72} 5 T ${width - 1} 4`}
-        stroke={color}
-        strokeWidth={1}
-        fill="none"
-        strokeLinecap="round"
-      />
-    </Svg>
-  );
-}
-
-/** 设置页每一行的左侧小图标，细线条，跟界面其它地方一个笔触 */
-function SetIcon({name, color}: {name: string; color: string}) {
-  const 笔 = {
-    stroke: color,
-    strokeWidth: 1.7,
-    fill: 'none',
-    strokeLinecap: 'round' as const,
-    strokeLinejoin: 'round' as const,
-  };
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" style={{marginRight: 12}}>
-      {name === 'person' && (
-        <>
-          <Circle cx={12} cy={8} r={3.6} {...笔} />
-          <Path d="M4.6 19.6c1.5-3.4 4.3-5.1 7.4-5.1s5.9 1.7 7.4 5.1" {...笔} />
-        </>
-      )}
-      {name === 'data' && (
-        <>
-          <Ellipse cx={12} cy={6.2} rx={6.8} ry={2.6} {...笔} />
-          <Path d="M5.2 6.2v5.6c0 1.4 3 2.6 6.8 2.6s6.8-1.2 6.8-2.6V6.2" {...笔} />
-          <Path d="M5.2 11.8v5.6c0 1.4 3 2.6 6.8 2.6s6.8-1.2 6.8-2.6v-5.6" {...笔} />
-        </>
-      )}
-      {name === 'moon' && (
-        <Path d="M20 14.6A8.6 8.6 0 0 1 9.4 4 8.6 8.6 0 1 0 20 14.6z" {...笔} />
-      )}
-      {name === 'info' && (
-        <>
-          <Circle cx={12} cy={12} r={8.4} {...笔} />
-          <Path d="M12 11v5.6M12 7.7v.5" {...笔} />
-        </>
-      )}
-      {name === 'doc' && (
-        <>
-          <Path d="M6.6 3.6h6.9l3.9 3.9v12.9H6.6z" {...笔} />
-          <Path d="M13.2 3.6v4.2H17.4" {...笔} />
-        </>
-      )}
-      {name === 'out' && (
-        <>
-          <Path d="M13.8 4.6H6.6v14.8h7.2" {...笔} />
-          <Path d="M12.4 12h8.2M17.6 8.6 21 12l-3.4 3.4" {...笔} />
-        </>
-      )}
-      {name === 'chat' && (
-        <Path d="M4.5 6.5h15v10h-9l-4.5 3.4v-3.4H4.5z" {...笔} />
-      )}
-      {name === 'planet' && (
-        <>
-          <Circle cx={12} cy={12} r={5.2} {...笔} />
-          <Path d="M4.2 14.6c-1.6 1.5-2.3 2.9-1.8 3.8.9 1.6 5.6.1 10.4-3.3S20.6 7 19.7 5.4c-.5-.9-1.9-.8-3.7-.1" {...笔} />
-        </>
-      )}
-      {name === 'picture' && (
-        <>
-          <Path d="M4.2 5.4h15.6v13.2H4.2z" {...笔} />
-          <Circle cx={9} cy={10} r={1.5} {...笔} />
-          <Path d="M4.6 17.4l4.6-4 3.4 2.8 3-2.6 3.8 3.4" {...笔} />
-        </>
-      )}
-      {name === 'gear' && (
-        <>
-          <Circle cx={12} cy={12} r={3.2} {...笔} />
-          <Path
-            d="M12 3.4v2.2M12 18.4v2.2M3.4 12h2.2M18.4 12h2.2M5.9 5.9l1.6 1.6M16.5 16.5l1.6 1.6M18.1 5.9l-1.6 1.6M7.5 16.5l-1.6 1.6"
-            {...笔}
-          />
-        </>
-      )}
-    </Svg>
-  );
-}
-
-/** 设置页的一行：图标 + 名字 + 右侧值 + 小箭头 */
-function SetRow({
-  icon,
-  label,
-  value,
-  onPress,
-  colors,
-  last,
-}: {
-  icon: string;
-  label: string;
-  value?: string;
-  onPress: () => void;
-  colors: {text: string; dim: string; line: string};
-  last?: boolean;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      style={({pressed}) => [
-        styles.setRow,
-        !last && {borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.line},
-        pressed && {opacity: 0.55},
-      ]}>
-      <SetIcon name={icon} color={colors.text} />
-      <Text style={[styles.setLabel, {color: colors.text}]}>{label}</Text>
-      {!!value && (
-        <Text style={[styles.setValue, {color: colors.dim}]} numberOfLines={1}>
-          {value}
-        </Text>
-      )}
-      <Text style={[styles.setArrow, {color: colors.dim}]}>›</Text>
-    </Pressable>
-  );
-}
-
-/** 卡片里两行之间的那条细线（跟行自带的下边线错开用） */
-function SetDivider({line}: {line: string}) {
-  return <View style={{height: StyleSheet.hairlineWidth, backgroundColor: line}} />;
-}
-
-/** 空间里的一条：我往那儿贴的东西 */
-type 说说 = {ts: number; text: string; img?: string};
-
-/**
- * 「空间」那一页：我发的东西，他打开就能看。
- * 内容是电脑上一个静态清单，我写了就多一条，不用重启什么。
- */
-function 空间页({
-  server,
-  头像,
-  名,
-  主题,
-}: {
-  server: string;
-  头像: string;
-  名: string;
-  主题: any;
-}) {
-  const [列表, set列表] = useState<说说[]>([]);
-  const [拉中, set拉中] = useState(true);
-  const [错, set错] = useState('');
-
-  useEffect(() => {
-    let alive = true;
-    (async () => {
-      try {
-        const r = await fetch(`${server}/space.json`, {cache: 'no-store'});
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        const j = await r.json();
-        if (alive) {
-          set列表(Array.isArray(j) ? j : []);
-          set错('');
-        }
-      } catch (e: any) {
-        // 拉不到要说话：以前是安静地空着，看着像「东西被删了」
-        if (alive) {
-          set列表([]);
-          set错(e?.message ? `海面没连上：${e.message}` : '海面没连上');
-        }
-      } finally {
-        if (alive) set拉中(false);
-      }
-    })();
-    return () => {
-      alive = false;
-    };
-  }, [server]);
-
-  return (
-    <View style={styles.fill}>
-      <Image source={{uri: seaBg}} style={styles.seaBack} resizeMode="cover" />
-      <ScrollView style={styles.spaceSea} contentContainerStyle={styles.spaceBody} showsVerticalScrollIndicator={false}>
-      <View style={styles.spaceHero}>
-        <View style={styles.spaceTop}>
-          <Image source={{uri: 头像}} style={styles.spaceAvatar} />
-          <Text style={[styles.spaceName, {color: 主题.text}]}>{名}</Text>
-          <Text style={[styles.spaceEn, {color: '#B9CDF0'}]}>Whaletter</Text>
-          <Text style={[styles.spaceMotto, {color: '#B9CDF0'}]}>
-            A little letter from the deep
-          </Text>
-        </View>
-      </View>
-
-      {拉中 ? (
-        <ActivityIndicator style={{marginTop: 30}} color={主题.accent} />
-      ) : 错 ? (
-        <Text style={[styles.spaceEmpty, {color: 主题.danger || '#E08A88'}]}>{错}</Text>
-      ) : 列表.length === 0 ? (
-        <Text style={[styles.spaceEmpty, {color: 主题.dim}]}>还没往这儿贴过东西</Text>
-      ) : (
-        // 一条一条当漂流瓶：越新的浮在越上面、越亮；越旧越往下沉、越暗
-        列表.map((p, i) => {
-          const 龄 = Math.max(0, (Date.now() - p.ts) / 86400000);
-          const 沉 = Math.min(140, 龄 * 14);
-          const 亮 = Math.max(0.34, 1 - 龄 * 0.07);
-          return (
-            <View
-              key={`${p.ts}-${i}`}
-              style={[
-                styles.bottle,
-                {
-                  marginTop: 6 + 沉,
-                  opacity: 亮,
-                  borderColor: 主题.line,
-                  backgroundColor: 'rgba(10,24,44,0.55)',
-                },
-              ]}>
-              <Svg width={22} height={22} viewBox="0 0 24 24" style={{marginRight: 10}}>
-                <Path
-                  d="M9.6 3.2h4.8v2.4h-4.8z"
-                  fill="none"
-                  stroke="#8FB6E8"
-                  strokeWidth={1.4}
-                />
-                <Path
-                  d="M9.6 5.6h4.8c1.6 3 2.2 5.8 2.2 8.4 0 4.2-1.9 6.2-4.6 6.2s-4.6-2-4.6-6.2c0-2.6.6-5.4 2.2-8.4z"
-                  fill="none"
-                  stroke="#8FB6E8"
-                  strokeWidth={1.4}
-                />
-                <Path d="M10.4 14.6h3.2" stroke="#8FB6E8" strokeWidth={1.2} />
-              </Svg>
-              <View style={{flex: 1}}>
-                <Text style={[styles.spaceTime, {color: '#8FB6E8'}]}>{dayTime(p.ts)}</Text>
-                <Text style={[styles.spaceText, {color: '#E8F0FF'}]}>{p.text}</Text>
-              </View>
-            </View>
-          );
-        })
-      )}
-
-      <Text style={[styles.spaceFoot, {color: '#DCE8FF'}]}>海面是新的，越往下越旧</Text>
-      </ScrollView>
-    </View>
-  );
-}
 
 /** 名字旁边那只小鲸鱼：处得越久越高兴，满一周尾巴比心 */
 function 小鲸鱼({天}: {天: number}) {
@@ -787,12 +404,7 @@ export default function App(): React.JSX.Element {
         // ⚠ 一条读不出来不能拖垮整套：以前是 Promise.all 一起等，
         // 只要有一个 key 抛（比如背景图太大，安卓那边 SQLite 读超 2MB 就报错），
         // 整块 catch 一走，地址令牌全没设上 → 每次启动都弹设置页，头像和背景也回到默认
-        const 取 = (k: string) =>
-          AsyncStorage.getItem(k).catch(() => {
-            // 读不出来的那条多半是存坏了：顺手扔掉，下次写就干净了
-            AsyncStorage.removeItem(k).catch(() => {});
-            return null;
-          });
+        const 取 = 安全读;
         const [s, k, m, c, av, ls, li, bg, bgm, pg, alv, nm] = await Promise.all([
           取(KEY_SERVER),
           取(KEY_TOKEN),
@@ -838,6 +450,18 @@ export default function App(): React.JSX.Element {
         const 用 = 表.find(x => x.id === li) || 表[0];
         set线表(表);
         set当前线(用.id);
+        // 本地存的那一份先顶上：断网进来也不至于白屏，联网后再对账
+        try {
+          const 缓存 = await AsyncStorage.getItem(`${KEY_CACHE}.${用.id}`);
+          if (缓存) {
+            const 旧 = JSON.parse(缓存);
+            if (Array.isArray(旧) && 旧.length) {
+              setMessages(旧);
+              lastSeq.current = 旧[旧.length - 1].seq || 0;
+            }
+          }
+        } catch (e) {}
+
         const srv = normalizeServer(用.server);
         const tok = 用.token;
         报地址 = srv;
@@ -860,8 +484,7 @@ export default function App(): React.JSX.Element {
         if (alv === '0') set常驻(false);
         if (nm) set名(nm);
         setSetupOpen(!(srv && tok));
-        // 第一次用（地址还没填）就直接把「账号管理 → 改这条」摊开，
-        // 别让人进了设置页还要自己找入口
+        // 第一次用（地址还没填）就直接把「账号管理 → 改这条」摊开，别让人自己找入口
         if (!srv || !tok) {
           set账号开(true);
           set改线开(true);
@@ -907,50 +530,20 @@ export default function App(): React.JSX.Element {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // 消息一变就把最近两百条写回本地。只留尾巴，别把几千条都塞进键值库
+  useEffect(() => {
+    if (booting || !messages.length) return;
+    const 尾巴 = messages.slice(-200);
+    AsyncStorage.setItem(`${KEY_CACHE}.${当前线}`, JSON.stringify(尾巴)).catch(() => {});
+  }, [messages, booting, 当前线]);
+
   // 记住停在哪一页：重启回来还是那一页
   useEffect(() => {
     if (booting) return;
     AsyncStorage.setItem(KEY_PAGE, 页).catch(() => {});
   }, [页, booting]);
 
-  const api = useCallback(
-    async (path: string, init?: {method?: string; body?: unknown; timeout?: number}) => {
-      // 网络半死不活的时候 fetch 能挂很久，轮询就会一条接一条地堆着。
-      // 加个自己的倒计时：到点掐掉，交给上层报「连不上」
-      const 限时 = init?.timeout ?? 12000;
-      const 闸 = new AbortController();
-      const 定时 = setTimeout(() => 闸.abort(), 限时);
-      let res: Response;
-      try {
-        res = await fetch(`${server}/api/${path}`, {
-          method: init?.method || 'GET',
-          headers: {'content-type': 'application/json', 'x-lanxi-token': token},
-          body: init?.body === undefined ? undefined : JSON.stringify(init.body),
-          signal: 闸.signal,
-        });
-      } catch (e: any) {
-        throw new Error(e?.name === 'AbortError' ? '超时了，那边没应' : e?.message || '连不上');
-      } finally {
-        clearTimeout(定时);
-      }
-      let data: any = null;
-      try {
-        data = await res.json();
-      } catch (e) {
-        data = null;
-      }
-      if (res.status === 401) {
-        const err: any = new Error('unauthorized');
-        err.code = 401;
-        throw err;
-      }
-      if (!res.ok || !data || data.ok === false) {
-        throw new Error((data && data.say) || `HTTP ${res.status}`);
-      }
-      return data;
-    },
-    [server, token],
-  );
+  const api = useMemo(() => makeApi(server, token), [server, token]);
 
   /**
    * 同一条消息会从三个口子进来：自己先插的临时项、发送接口回带的那几条、后台轮询拉到的。
@@ -1125,6 +718,11 @@ export default function App(): React.JSX.Element {
     return [...prev, ...真新].sort((a, b) => 位(a) - 位(b));
   }, []);
 
+  /** 没发出去的，排这儿等着重发（轮询和发送两边都要碰它，所以放在前面） */
+  const 待发 = useRef<{key: number; text: string}[]>([]);
+  /** 补发动作本身要等 postSend 定下来，先用 ref 占个位 */
+  const 补发 = useRef<() => void>(() => {});
+
   const pullInitial = useCallback(async () => {
     const data = await api('messages?tail=120');
     const list: Msg[] = (data.messages || []).filter((m: Msg) => m.seq != null);
@@ -1155,6 +753,7 @@ export default function App(): React.JSX.Element {
       }
       setStatus(data);
       setBanner('');
+      if (待发.current.length) 补发.current();
     } catch (e: any) {
       void 报账(`poll ERR ${String(e?.message || e)} bg=${不在前台.current ? 1 : 0}`);
       if (e.code === 401) {
@@ -1367,10 +966,27 @@ export default function App(): React.JSX.Element {
           prev.map(m => (m.seq === tempKey ? {...m, failed: true} : m)),
         );
         setBanner(`没发出去：${e.message}`);
+        // 排进待发队，等网回来自己补发——别让人再打一遍
+        if (!待发.current.some(x => x.key === tempKey) && 待发.current.length < 20) {
+          待发.current.push({key: tempKey, text});
+        }
       }
     },
     [api, 并入, 滚到底],
   );
+
+  /** 待发队列：网一回来自动补发，补成功就从列表里消失 */
+  const 做补发 = useCallback(async () => {
+    if (!待发.current.length) return;
+    const 这批 = [...待发.current];
+    待发.current = [];
+    for (const 条 of 这批) {
+      await postSend(条.text, 条.key);
+    }
+  }, [postSend]);
+  补发.current = () => {
+    void 做补发();
+  };
 
   /** 把电脑上的文件存到这台手机（应用自己的目录，不用权限） */
   const 存文件 = useCallback(
@@ -2142,8 +1758,6 @@ export default function App(): React.JSX.Element {
                       set名(新名);
                       set名字开(false);
                       AsyncStorage.setItem(KEY_NAME, 新名).catch(() => {});
-                      // 消息列表和账号管理里显示的是「这条线的名字」，
-                      // 光改 名 那两处不会跟着变——顺手把当前这条线也改名
                       void 存线(线表.map(x => (x.id === 当前线 ? {...x, name: 新名} : x)));
                     }}
                     style={({pressed}) => [
@@ -2439,7 +2053,7 @@ export default function App(): React.JSX.Element {
           // 底下垫一块深海色：海面图是半透明的，底下要是浅色底，一眼看过去就是白纱
           <View style={[styles.fill, {backgroundColor: '#0B1A2E'}]}>
             {/* 空间永远当深色看：海面是深色的图，跟着外观切浅色字就全糊了 */}
-            <空间页
+            <SpacePage
               server={server}
               头像={我的头像}
               名={名}
@@ -2728,7 +2342,7 @@ export default function App(): React.JSX.Element {
   );
 }
 
-/** 凡是带字号的样式，都挂上默认字体；不想改字号的旁支就不动 */
+/** 凡是带字号的样式，都挂上默认字体 */
 function 补字体(表: Record<string, any>) {
   const 出: Record<string, any> = {};
   for (const k of Object.keys(表)) {
@@ -2780,10 +2394,6 @@ const styles = StyleSheet.create(补字体({
   setTitle: {fontSize: 18, fontWeight: '600'},
   setBody: {paddingHorizontal: 16, paddingBottom: 40},
   setCard: {borderRadius: 16, overflow: 'hidden', marginBottom: 22},
-  setRow: {flexDirection: 'row', alignItems: 'center', minHeight: 54, paddingHorizontal: 16},
-  setLabel: {fontSize: 16, flex: 1},
-  setValue: {fontSize: 13, maxWidth: 190, textAlign: 'right'},
-  setArrow: {fontSize: 20, marginLeft: 8, marginTop: -2},
   setSection: {fontSize: 12, marginLeft: 18, marginBottom: 8, letterSpacing: 0.5},
   setPanel: {paddingHorizontal: 16, paddingBottom: 16},
   lineRow: {
@@ -2856,25 +2466,6 @@ const styles = StyleSheet.create(补字体({
     paddingBottom: 10,
   },
   tabItem: {flex: 1, alignItems: 'center'},
-
-  // 空间
-  spaceSea: {flex: 1, backgroundColor: 'transparent'},
-  seaBack: {...StyleSheet.absoluteFillObject, width: '100%', height: '100%', opacity: 0.55},
-  spaceBody: {paddingHorizontal: 16, paddingTop: 34, paddingBottom: 30},
-  bottle: {flexDirection: 'row', borderRadius: 14, borderWidth: StyleSheet.hairlineWidth, padding: 12},
-  spaceHero: {alignItems: 'center'},
-  spaceArt: {height: 190, width: '100%', opacity: 0.92, marginTop: 4},
-  spaceTop: {alignItems: 'center', paddingTop: 64, paddingBottom: 22},
-  spaceAvatar: {width: 72, height: 72, borderRadius: 36, backgroundColor: '#303054'},
-  spaceEn: {fontSize: 11, letterSpacing: 4, marginTop: 5, textTransform: 'uppercase'},
-  spaceName: {fontSize: 19, fontWeight: '600', marginTop: 12},
-  spaceSub: {fontSize: 12, marginTop: 4},
-  spaceMotto: {fontSize: 11, marginTop: 8, fontStyle: 'italic', letterSpacing: 0.6},
-  spaceEmpty: {fontSize: 13, textAlign: 'center', marginTop: 24},
-  spaceCard: {borderRadius: 14, padding: 14, marginBottom: 10},
-  spaceTime: {fontSize: 11, marginBottom: 6},
-  spaceText: {fontSize: 15, lineHeight: 24},
-  spaceFoot: {fontSize: 11, textAlign: 'center', marginTop: 14},
 
   // 屏幕中间飘一下的小提示
   toast: {
