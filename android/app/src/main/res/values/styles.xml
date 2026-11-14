@@ -1,0 +1,11 @@
+<resources>
+
+    <!-- Base application theme. -->
+    <style name="AppTheme" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <!-- Customize your theme here. -->
+        <item name="android:editTextBackground">@drawable/rn_edit_text_material</item>
+        <!-- 启动时先把底色刷成藏青，省得白一下再变深 -->
+        <item name="android:windowBackground">#12121F</item>
+    </style>
+
+</resources>

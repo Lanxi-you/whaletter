@@ -1,0 +1,241 @@
+/* 手机聊天界面 —— 跟着系统深浅色走，不写死一套 */
+:root {
+  --bg: #eef2f6;
+  --bg-elev: #ffffff;
+  --line: rgba(16, 38, 56, .1);
+  --text: #10232f;
+  --text-dim: #607180;
+  --bubble-me: linear-gradient(160deg, #3d8fb6, #2f7396);
+  --bubble-me-text: #ffffff;
+  --bubble-her: #ffffff;
+  --bubble-her-text: #142730;
+  --accent: #2f7396;
+  --shadow: 0 1px 2px rgba(16, 38, 56, .08), 0 6px 18px rgba(16, 38, 56, .06);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0d1620;
+    --bg-elev: #16232f;
+    --line: rgba(255, 255, 255, .09);
+    --text: #e6eef4;
+    --text-dim: #8ba0b0;
+    --bubble-me: linear-gradient(160deg, #3a7fa2, #2b6285);
+    --bubble-me-text: #f4fbfd;
+    --bubble-her: #1b2a37;
+    --bubble-her-text: #dde8ef;
+    --accent: #6fb6d8;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 22px rgba(0, 0, 0, .28);
+  }
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Microsoft YaHei", "Noto Sans SC", Roboto, sans-serif;
+  /* 双击不缩放；滚动还是交给列表自己 */
+  touch-action: manipulation;
+  overscroll-behavior: none;
+}
+
+/* 整块用 dvh，iOS 键盘弹起时再用 --vh 顶一次（见 app.js） */
+.app {
+  position: fixed;
+  inset: 0;
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.topbar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: calc(env(safe-area-inset-top) + 8px) 14px 8px;
+  background: color-mix(in srgb, var(--bg-elev) 88%, transparent);
+  border-bottom: 1px solid var(--line);
+  backdrop-filter: saturate(1.4) blur(12px);
+  -webkit-backdrop-filter: saturate(1.4) blur(12px);
+  z-index: 3;
+}
+
+.who { display: flex; align-items: center; gap: 10px; min-width: 0; }
+
+.avatar {
+  width: 34px; height: 34px; border-radius: 11px;
+  display: grid; place-items: center;
+  font-size: 15px; font-weight: 600; color: #f6fbff;
+  background: linear-gradient(150deg, #3d8fb6, #22516e);
+  flex: 0 0 auto;
+}
+
+.names { display: flex; flex-direction: column; min-width: 0; }
+.name { font-weight: 600; font-size: 16px; line-height: 1.2; }
+.sub { font-size: 12px; color: var(--text-dim); line-height: 1.3; }
+
+.icon-btn {
+  border: 0; background: transparent; color: var(--text-dim);
+  font-size: 22px; line-height: 1; padding: 6px 10px; border-radius: 10px;
+}
+
+.list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  padding: 12px 12px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  scrollbar-width: thin;
+}
+
+.empty {
+  margin: auto;
+  color: var(--text-dim);
+  font-size: 14px;
+}
+
+.row { display: flex; flex-direction: column; max-width: 82%; }
+.row.me { align-self: flex-end; align-items: flex-end; }
+.row.her { align-self: flex-start; align-items: flex-start; }
+
+.bubble {
+  padding: 9px 13px;
+  border-radius: 18px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  font-size: 16px;
+  line-height: 1.45;
+  box-shadow: var(--shadow);
+}
+
+.row.me .bubble {
+  background: var(--bubble-me);
+  color: var(--bubble-me-text);
+  border-bottom-right-radius: 6px;
+}
+.row.her .bubble {
+  background: var(--bubble-her);
+  color: var(--bubble-her-text);
+  border-bottom-left-radius: 6px;
+}
+
+.meta {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin: 3px 4px 0;
+  display: flex; gap: 6px; align-items: center;
+}
+.row.me .meta { justify-content: flex-end; }
+.meta .bad { color: #d1655f; }
+
+.composer {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 8px 10px calc(env(safe-area-inset-bottom) + 8px);
+  background: color-mix(in srgb, var(--bg-elev) 92%, transparent);
+  border-top: 1px solid var(--line);
+  backdrop-filter: saturate(1.4) blur(12px);
+  -webkit-backdrop-filter: saturate(1.4) blur(12px);
+}
+
+#input {
+  flex: 1 1 auto;
+  min-height: 40px;
+  max-height: 132px;
+  resize: none;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--text);
+  border-radius: 20px;
+  padding: 9px 14px;
+  font: inherit;
+  font-size: 16px; /* iOS 小于 16px 会自己放大页面 */
+  line-height: 1.4;
+  outline: none;
+}
+#input:focus { border-color: var(--accent); }
+
+.send {
+  flex: 0 0 auto;
+  height: 40px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 20px;
+  background: var(--accent);
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  font-size: 15px;
+}
+.send:disabled { opacity: .45; }
+
+.banner {
+  flex: 0 0 auto;
+  padding: 6px 14px;
+  font-size: 12.5px;
+  text-align: center;
+  color: #8a5a15;
+  background: #fdf1da;
+  border-top: 1px solid var(--line);
+}
+@media (prefers-color-scheme: dark) {
+  .banner { color: #f0cf9a; background: #3a2d18; }
+}
+
+/* 首次进门 */
+.gate {
+  position: fixed; inset: 0;
+  display: grid; place-items: center;
+  padding: 24px;
+  background: var(--bg);
+  z-index: 10;
+}
+.gate[hidden] { display: none; }
+
+.gate-card {
+  width: min(360px, 100%);
+  text-align: center;
+  padding: 8px;
+}
+.gate-icon {
+  width: 64px; height: 64px; margin: 0 auto 14px;
+  border-radius: 20px; display: grid; place-items: center;
+  font-size: 26px; font-weight: 600; color: #f6fbff;
+  background: linear-gradient(150deg, #3d8fb6, #22516e);
+}
+.gate-card h1 { margin: 0 0 6px; font-size: 20px; font-weight: 600; }
+.gate-tip { margin: 0 0 18px; color: var(--text-dim); font-size: 14px; }
+.gate-card form { display: flex; flex-direction: column; gap: 10px; }
+.gate-card input {
+  height: 46px; border-radius: 12px; border: 1px solid var(--line);
+  background: var(--bg-elev); color: var(--text); padding: 0 14px;
+  font: inherit; font-size: 16px; outline: none; text-align: center;
+}
+.gate-card input:focus { border-color: var(--accent); }
+.gate-card button {
+  height: 46px; border: 0; border-radius: 12px; background: var(--accent);
+  color: #fff; font: inherit; font-weight: 600; font-size: 16px;
+}
+.gate-err { margin: 12px 0 0; color: #d1655f; font-size: 13px; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .row { animation: rise .18s ease-out both; }
+  @keyframes rise { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+}

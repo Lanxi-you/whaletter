@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 鲸笺 / Whaletter：后端一般是自己电脑上的明文 http（局域网或 Tailscale），
+     Android 9+ 默认禁止明文，这里整体放行。地址是你自己填的，填谁的连谁。 -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

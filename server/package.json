@@ -1,0 +1,19 @@
+{
+  "name": "dsh-whaletter-chat",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "description": "自己搭的手机聊天通道：PWA 页面 + 令牌鉴权，消息直接进出 DSH 的会话，不经过任何第三方平台",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./package.json": "./package.json"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "icons": "node tools/gen-icons.mjs"
+  },
+  "license": "Apache-2.0"
+}

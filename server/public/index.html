@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<!-- 100dvh + 键盘：interactive-widget 让安卓键盘把内容压上而不是盖住；iOS 再用 visualViewport 兜一次。
+     user-scalable=no + touch-action:manipulation 一起用，双击不再缩放。 -->
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content" />
+<title>鲸笺</title>
+<meta name="description" content="自己搭的一条私有通道" />
+<link rel="manifest" href="./manifest.webmanifest" />
+<link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="鲸笺" />
+<meta name="theme-color" content="#eef2f6" media="(prefers-color-scheme: light)" />
+<meta name="theme-color" content="#0d1620" media="(prefers-color-scheme: dark)" />
+<link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <div id="app" class="app" hidden>
+    <header class="topbar">
+      <div class="who">
+        <span class="avatar" aria-hidden="true">汐</span>
+        <span class="names">
+          <span class="name" id="peerName">鲸鱼娘</span>
+          <span class="sub" id="statusLine">连接中…</span>
+        </span>
+      </div>
+      <button id="menuBtn" class="icon-btn" type="button" aria-label="菜单">⋯</button>
+    </header>
+
+    <div id="list" class="list" role="log" aria-live="polite">
+      <div id="empty" class="empty">还没有消息。说点什么吧。</div>
+    </div>
+
+    <div id="banner" class="banner" hidden></div>
+
+    <form id="composer" class="composer" autocomplete="off">
+      <textarea id="input" rows="1" placeholder="说点什么…" enterkeyhint="send"
+        autocomplete="off" autocapitalize="sentences" spellcheck="false"></textarea>
+      <button id="send" class="send" type="submit" aria-label="发送">发送</button>
+    </form>
+  </div>
+
+  <div id="gate" class="gate">
+    <div class="gate-card">
+      <div class="gate-icon" aria-hidden="true">汐</div>
+      <h1>鲸鱼娘</h1>
+      <p class="gate-tip">这条通道只给一个人用。<br />输入访问令牌。</p>
+      <form id="gateForm">
+        <input id="tokenInput" type="password" inputmode="text" placeholder="访问令牌"
+          autocomplete="current-password" autocapitalize="off" spellcheck="false" />
+        <button type="submit">进去</button>
+      </form>
+      <p id="gateErr" class="gate-err" hidden></p>
+    </div>
+  </div>
+
+  <script src="./app.js"></script>
+</body>
+</html>

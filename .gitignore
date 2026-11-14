@@ -1,0 +1,15 @@
+node_modules/
+android/app/build/
+android/build/
+android/.gradle/
+android/.cxx/
+android/local.properties
+android/app/src/main/assets/index.android.bundle
+server/data-root/
+*.apk
+*.aab
+*.keystore
+.idea/
+.DS_Store
+npm-debug.log
+yarn-error.log
