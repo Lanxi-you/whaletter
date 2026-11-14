@@ -1,6 +1,6 @@
 {
   "name": "Whaletter",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "private": true,
   "scripts": {
     "android": "react-native run-android",
@@ -39,5 +39,7 @@
   },
   "engines": {
     "node": ">=18"
-  }
+  },
+  "description": "鲸笺 / Whaletter：自己搭的手机聊天 App（React Native），后端在自己电脑上",
+  "license": "MIT"
 }
